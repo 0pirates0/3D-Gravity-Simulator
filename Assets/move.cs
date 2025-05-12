@@ -6,6 +6,11 @@ public class PlayerMovement : MonoBehaviour
 {
     public float moveSpeed = 6f;
     public float jumpForce = 5f;
+
+    [Header("Hologram")]
+    public GameObject hologramPrefab;
+    private GameObject activeHologram;
+
     public float gravityStrength = 9.81f;
 
     private Vector3 gravityDir = Vector3.down;
@@ -34,22 +39,64 @@ public class PlayerMovement : MonoBehaviour
 
     void HandleGravityInput()
 {
-    // Get the player's local axes based on current rotation
     Vector3 forward = transform.forward;
     Vector3 right = transform.right;
-    Vector3 up = transform.up;
 
-    // Use relative directions instead of world axes
-    if (Input.GetKeyDown(KeyCode.UpArrow)) pendingGravityDir = forward;
-    if (Input.GetKeyDown(KeyCode.DownArrow)) pendingGravityDir = -forward;
-    if (Input.GetKeyDown(KeyCode.LeftArrow)) pendingGravityDir = -right;
-    if (Input.GetKeyDown(KeyCode.RightArrow)) pendingGravityDir = right;
+    bool arrowPressed = false;
+
+    if (Input.GetKeyDown(KeyCode.UpArrow)) { pendingGravityDir = forward; arrowPressed = true;}
+    if (Input.GetKeyDown(KeyCode.DownArrow)) { pendingGravityDir = -forward; arrowPressed = true;}
+    if (Input.GetKeyDown(KeyCode.LeftArrow)) { pendingGravityDir = -right; arrowPressed = true;}
+    if (Input.GetKeyDown(KeyCode.RightArrow)) { pendingGravityDir = right; arrowPressed = true;}
+
+    if (arrowPressed)
+    {
+        ShowHologramPreview(pendingGravityDir);
+    }
 
     if (Input.GetKeyDown(KeyCode.Return))
     {
         gravityDir = pendingGravityDir;
         StartCoroutine(SmoothAlign(-gravityDir));
         velocity = Vector3.zero;
+
+        // Remove hologram
+        if (activeHologram != null) Destroy(activeHologram);
+    }
+}
+
+void ShowHologramPreview(Vector3 gravityDir)
+{
+    if (activeHologram != null)
+    {
+        Destroy(activeHologram);
+        activeHologram = null;
+    }
+
+    activeHologram = Instantiate(hologramPrefab, transform);
+
+    // Base head height + gravity preview direction
+    Vector3 headPos = transform.position + transform.up * 2f;
+    Vector3 basePos = headPos + gravityDir.normalized * 2f;
+
+    // Offset direction based on key
+    Vector3 offset = Vector3.zero;
+
+    if (Input.GetKeyDown(KeyCode.UpArrow))    offset += transform.forward * 1.5f;
+    if (Input.GetKeyDown(KeyCode.DownArrow))  offset += -transform.forward * 1.5f;
+    if (Input.GetKeyDown(KeyCode.RightArrow)) offset += transform.right * 1.5f;
+    if (Input.GetKeyDown(KeyCode.LeftArrow))  offset += -transform.right * 1.5f;
+
+    activeHologram.transform.position = basePos + offset;
+
+    // Attach and rotate
+    var tracker = activeHologram.GetComponent<FollowAndFacePlayer>();
+    if (tracker != null)
+    {
+        tracker.player = this.transform;
+        tracker.gravityDir = gravityDir;
+        tracker.isActive = true;
+        tracker.ApplyRotation(); // Set rotation once
     }
 }
 
